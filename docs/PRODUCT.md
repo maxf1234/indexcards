@@ -37,17 +37,29 @@ paywall in front of the basics."
 - **Export:** TSV, CSV, JSON, printable fold-in-half cards, full backup
 - **Share links:** the set is compressed into the URL itself, so there's no server, links never expire and recipients don't need an account
 - **Other:** offline PWA (installable), dark mode, keyboard shortcuts throughout, mobile layout, study streak, mastery bar, due-card counts
+- **Accounts (optional, free):**
+  - Email/password sign-up and sign-in, with optional Google or other OAuth providers.
+  - Password reset, display name, change password.
+  - Self-service account deletion.
+  - Sign-out with an option to wipe the device, for shared computers.
+  - Every set, with its study progress, syncs automatically across devices. See [ACCOUNTS.md](ACCOUNTS.md).
 
 ### Architecture
 
-Static site with no build step and no backend. It runs on free GitHub Pages,
-Netlify or Cloudflare Pages.
+Static site with no build step. It runs on free GitHub Pages, Netlify or
+Cloudflare Pages. Accounts use Supabase's free tier, and the app still works
+completely without it.
 
 ```
 index.html          app shell
 css/styles.css      all styles (light and dark tokens)
 js/app.js           router and views (home, set, editor, import, share, settings, about)
-js/store.js         localStorage persistence; the interface a sync backend would implement
+js/store.js         localStorage persistence; stamps every change and keeps deletion tombstones
+js/cloud.js         Supabase auth and background sync (pull, merge, push)
+js/sync.js          pure merge logic: the newer copy of each set wins
+js/account.js       account page (sign in/up, reset, profile, delete)
+js/cloud-config.js  Supabase URL and anon key (blank = accounts off)
+supabase/schema.sql database table, Row Level Security policies, delete-account function
 js/srs.js           spaced-repetition scheduler
 js/io.js            import/export parsers and share-link encoding
 js/config.js        plans, feature gates, MONETIZATION_ENABLED flag
@@ -65,7 +77,7 @@ Quizlet lost users' trust.
 | Tier | Price idea | What's in it | Why people would pay |
 |---|---|---|---|
 | **Free** | $0 | Everything in the MVP, unlimited | The growth engine |
-| **Pro** | ~$3–4/mo or ~$24/yr (below Quizlet Plus) | Cloud sync across devices, AI cards from notes/PDFs/slides, images and diagram (occlusion) cards, premium voices, advanced stats, custom themes | Sync and AI have real running costs |
+| **Pro** | ~$3–4/mo or ~$24/yr (below Quizlet Plus) | AI cards from notes/PDFs/slides, images and diagram (occlusion) cards, premium voices, advanced stats, custom themes | AI and media storage have real running costs |
 | **Teacher** | ~$6–8/mo; school site licences | Classes, assignments, per-student progress, a live classroom game, LMS (Google Classroom/Canvas) integration | Schools pay; students never do |
 | **Supporter** | Pay what you want | A badge and early access | Goodwill from users who joined over the anti-paywall message |
 
@@ -79,9 +91,9 @@ paid API or embed for publishers. **No ads in study modes, ever.**
   `MONETIZATION_ENABLED = false`, every gate returns "allowed".
 - New paid features should call `can('cloudSync')` (or the relevant flag)
   instead of hard-coding access checks.
-- `js/store.js` keeps all reads and writes behind one module, so a sync backend
-  (Supabase, Firebase, or Cloudflare D1 + Workers) can mirror the same
-  operations later.
+- Accounts and sync are part of the free plan. Every user already has an
+  account to attach a Stripe customer to, so a paid tier can be added without
+  creating another identity system.
 
 ## 4. Roadmap
 
@@ -89,10 +101,11 @@ paid API or embed for publishers. **No ads in study modes, ever.**
 2. **Growth:** public set library and SEO landing pages (Quizlet gets most of
    its traffic from search for "<topic> flashcards"), a one-click "Import this
    Quizlet set" guide, and a referral link on shared sets.
-3. **Accounts (optional, free):** email/OAuth sign-in to back up and share
-   publicly. Studying stays possible without an account.
-4. **Pro launch:** cloud sync and AI generation, paid with Stripe Checkout and
-   managed through the customer portal (easy cancel).
+3. ✅ **Accounts (optional, free):** sign-in plus sync. Next: public profiles
+   and publishing sets to the public library.
+4. **Pro launch:** AI generation and image cards, paid with Stripe Checkout and
+   managed through the customer portal (easy cancel). A `plan` column on a
+   `profiles` table, set by a Stripe webhook, feeds `setPlan()`.
 5. **Teacher tier:** classes, assignments, analytics, a live game.
 6. **Native apps:** wrap the PWA with Capacitor for the app stores.
 

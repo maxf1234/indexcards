@@ -4,6 +4,9 @@ import { esc, fmt, plural, timeAgo, toast, download, slug, $, $$ } from './util.
 import { parseText, parseCSV, detectSeparators, resolveSep, toCSV, toTSV, encodeShare, decodeShare } from './io.js';
 import { isDue, masteryOf } from './srs.js';
 import { speak } from './speech.js';
+import * as cloud from './cloud.js';
+import { CLOUD } from './cloud-config.js';
+import { renderAccount, initials } from './account.js';
 import flashcards from './modes/flashcards.js';
 import learn from './modes/learn.js';
 import write from './modes/write.js';
@@ -56,6 +59,7 @@ async function route() {
     if (a === 'new') return renderEditor(null);
     if (a === 'import') return renderImport();
     if (a === 'settings') return renderSettings();
+    if (a === 'account') return (cleanup = renderAccount(app, query, { go, providers: CLOUD.oauthProviders }));
     if (a === 'about') return renderAbout();
     if (a === 's') return renderShared(b);
     if (a === 'set' && b) {
@@ -73,6 +77,35 @@ async function route() {
 }
 
 window.addEventListener('hashchange', route);
+
+// Another device's changes arrived: refresh browse screens, never interrupt
+// a study session or the editor.
+window.addEventListener('ic:remote-change', () => {
+  const [a, , c] = parseHash().parts;
+  if (!a || (a === 'set' && !c)) route();
+});
+
+// ---------- Account link in the nav ----------
+function updateAccountLink() {
+  const link = document.getElementById('account-link');
+  if (!cloud.configured()) {
+    link.hidden = true;
+    return;
+  }
+  link.hidden = false;
+  const user = cloud.getUser();
+  if (!user) {
+    link.className = 'account-link';
+    link.textContent = 'Sign in';
+    link.title = 'Sign in to sync across devices';
+    return;
+  }
+  const { state } = cloud.getStatus();
+  link.className = `account-link signed-in sync-state ${state}`;
+  link.title = `${cloud.displayName(user)} — ${state === 'idle' ? 'synced' : state}`;
+  link.innerHTML = `<span class="avatar">${esc(initials(cloud.displayName(user)))}</span><i class="sync-dot"></i>`;
+}
+cloud.onChange(updateAccountLink);
 
 // ---------- Views ----------
 function renderNotFound() {
@@ -616,7 +649,11 @@ function renderSettings() {
       </section>
       <section class="panel">
         <h3>Your data</h3>
-        <p class="muted small">Everything is stored only in this browser. Back it up, or move it to another device.</p>
+        <p class="muted small">${
+          cloud.getUser()
+            ? `Signed in as ${esc(cloud.getUser().email || '')} — your sets are backed up to your account. <a href="#/account">Manage account</a>`
+            : `Your sets are stored in this browser.${cloud.configured() ? ' <a href="#/account">Sign in</a> to back them up and sync across devices, or' : ''} Download a backup to keep a copy.`
+        }</p>
         <div class="row wrap gap">
           <button class="btn" id="backup">Download backup</button>
           <label class="btn file-btn">Restore backup<input type="file" id="restore" accept=".json" hidden></label>
@@ -653,8 +690,12 @@ function renderSettings() {
     }
   };
   $('#wipe').onclick = () => {
-    if (confirm('Delete ALL sets and progress on this device?') && confirm('Really? Download a backup first if unsure.')) {
+    const msg = cloud.getUser()
+      ? 'Remove all sets from THIS DEVICE? Your account copy is kept and will sync back.'
+      : 'Delete ALL sets and progress on this device?';
+    if (confirm(msg) && confirm('Really? Download a backup first if unsure.')) {
       store.resetAll();
+      cloud.sync();
       go('/');
     }
   };
@@ -673,7 +714,7 @@ function renderAbout() {
           <tr><td>Spaced repetition</td><td>✅ Built in</td><td>Often missing or paid</td></tr>
           <tr><td>Ads while studying</td><td>✅ Never</td><td>Common on free tiers</td></tr>
           <tr><td>Export your cards</td><td>✅ CSV, TSV, JSON, print</td><td>Limited or hidden</td></tr>
-          <tr><td>Account required</td><td>✅ No</td><td>Yes</td></tr>
+          <tr><td>Account required</td><td>✅ No — optional, free, for syncing</td><td>Yes</td></tr>
           <tr><td>Works offline</td><td>✅ Yes</td><td>Paid feature</td></tr>
           <tr><td>Typo-tolerant grading</td><td>✅ Yes, plus “I was right” override</td><td>Varies</td></tr>
         </tbody>
@@ -766,7 +807,9 @@ const DEMO_SET = {
 
 // ---------- Boot ----------
 document.getElementById('brand').textContent = APP_NAME;
+updateAccountLink();
 route();
+cloud.init().catch((e) => console.warn('Accounts unavailable:', e));
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});

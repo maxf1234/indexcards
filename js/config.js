@@ -6,8 +6,9 @@
 //
 // Promise to users (see docs/PRODUCT.md): the CORE study experience — creating
 // sets, every study mode, spaced repetition, import/export, sharing — is free
-// forever with no round limits and no ads inside study sessions. Paid tiers add
-// things that cost us money to run (cloud sync, AI, storage, classrooms).
+// forever with no round limits and no ads inside study sessions. Accounts and
+// basic sync are free too. Paid tiers add things that cost real money to run
+// (AI, large media storage, classrooms).
 
 export const APP_NAME = 'IndexCards';
 
@@ -15,7 +16,7 @@ export const PLANS = {
   free: {
     name: 'Free',
     price: 0,
-    features: ['core', 'allModes', 'srs', 'importExport', 'linkShare', 'offline'],
+    features: ['core', 'allModes', 'srs', 'importExport', 'linkShare', 'offline', 'accounts', 'cloudSync'],
     limits: { sets: Infinity, cardsPerSet: Infinity, studyRounds: Infinity },
   },
   // Not purchasable yet — defined so pricing UI and gates can be built ahead.
@@ -23,7 +24,7 @@ export const PLANS = {
     name: 'Pro',
     price: 4,
     interval: 'month',
-    features: ['cloudSync', 'aiGenerate', 'images', 'audioTTSVoices', 'advancedStats', 'customThemes'],
+    features: ['aiGenerate', 'images', 'audioTTSVoices', 'advancedStats', 'customThemes'],
     limits: { aiCardsPerMonth: 2000, storageMb: 1024 },
   },
   teacher: {

@@ -1,19 +1,23 @@
 // Offline support: cache the app shell, serve network-first so updates land
 // immediately when online and the cached copy is used when offline.
 
-const CACHE = 'indexcards-v1';
+const CACHE = 'indexcards-v2';
 const SHELL = [
   './',
   'index.html',
   'css/styles.css',
   'manifest.webmanifest',
   'icons/icon.svg',
+  'js/account.js',
   'js/app.js',
+  'js/cloud.js',
+  'js/cloud-config.js',
   'js/config.js',
   'js/io.js',
   'js/speech.js',
   'js/srs.js',
   'js/store.js',
+  'js/sync.js',
   'js/util.js',
   'js/modes/common.js',
   'js/modes/flashcards.js',
